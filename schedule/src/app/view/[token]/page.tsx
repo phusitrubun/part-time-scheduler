@@ -185,26 +185,14 @@ export default function PublicViewPage() {
                               {sched.assignments.map(a => (
                                 <span
                                   key={a.id}
-                                  className="px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2"
+                                  className="px-3 py-1.5 rounded-lg text-sm font-medium"
                                   style={{ 
                                     background: `${color}15`, 
                                     color: color,
-                                    border: `1px solid ${color}30`,
-                                    width: 'max-content'
+                                    border: `1px solid ${color}30`
                                   }}
                                 >
                                   {a.employee?.name}
-                                  {a.employee?.employment_type && (
-                                    <span 
-                                      className="px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm" 
-                                      style={{ 
-                                        background: a.employee.employment_type === 'full_time' ? 'var(--accent-primary)' : 'var(--accent-warning)', 
-                                        color: 'white' 
-                                      }}
-                                    >
-                                      {a.employee.employment_type === 'full_time' ? 'ประจำ' : 'พาร์ทไทม์'}
-                                    </span>
-                                  )}
                                 </span>
                               ))}
                             </div>
