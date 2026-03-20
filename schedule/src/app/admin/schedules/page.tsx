@@ -75,6 +75,10 @@ export default function SchedulesPage() {
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [deleteScheduleId, setDeleteScheduleId] = useState<string | null>(null);
 
+  // Generate Schedule Modal
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [genMode, setGenMode] = useState<'single' | 'range'>('single');
+
   const loadAll = useCallback(async () => {
     const [empRes, shiftRes, unavRes, schedRes] = await Promise.all([
       supabase.from('employees').select('*').order('name'),
@@ -373,6 +377,14 @@ export default function SchedulesPage() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => setShowGenerateModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer text-white shadow-sm hover:shadow-md hover:-translate-y-0.5"
+            style={{ background: 'var(--gradient-primary)' }}
+          >
+            <Wand2 size={16} />
+            สุ่มจัดตาราง
+          </button>
+          <button
             onClick={openPublishModal}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer text-white hover:opacity-90 disabled:opacity-50"
@@ -399,77 +411,6 @@ export default function SchedulesPage() {
         </div>
       </div>
 
-      {/* Generate Section */}
-      <div
-        className="rounded-xl p-6 mb-6"
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-        }}
-      >
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <Wand2 size={20} style={{ color: 'var(--accent-primary)' }} />
-          สร้างตารางอัตโนมัติ
-        </h2>
-
-        <div className="mb-6 pb-6 border-b" style={{ borderColor: 'var(--border-color)' }}>
-          <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
-            วันหยุดประจำสัปดาห์ของร้าน (ระบบจะไม่สุ่มพนักงานมาลงกะในวันนี้)
-          </label>
-          <div className="flex gap-2 flex-wrap">
-            {['1', '2', '3', '4', '5', '6', '0'].map((idxStr) => {
-              const idx = parseInt(idxStr);
-              const dayNames: Record<number, string> = { 0: 'อาทิตย์', 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์' };
-              const isSelected = storeHolidays.has(idx);
-              return (
-                <button
-                  key={idx}
-                  onClick={() => toggleStoreHoliday(idx)}
-                  className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${isSelected ? 'shadow-sm' : ''}`}
-                  style={{
-                    background: isSelected ? 'var(--accent-danger)' : 'var(--bg-surface)',
-                    color: isSelected ? 'white' : 'var(--text-secondary)',
-                    border: `1px solid ${isSelected ? 'transparent' : 'var(--border-color)'}`
-                  }}
-                  title={isSelected ? 'คลิกเพื่อเปลี่ยนให้เป็นวันปกติ' : 'คลิกเพื่อตั้งเป็นวันหยุดร้าน'}
-                >
-                  {dayNames[idx]} {isSelected && ''}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-end gap-4">
-          <div className="flex-1 w-full sm:w-auto">
-            <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>วันที่เริ่มต้น</label>
-            <DatePicker 
-              value={parseISO(startDate)} 
-              onChange={(d) => setStartDate(format(d, 'yyyy-MM-dd'))} 
-            />
-          </div>
-          <div className="flex-1 w-full sm:w-auto">
-            <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>วันที่สิ้นสุด</label>
-            <DatePicker 
-              value={parseISO(endDate)} 
-              onChange={(d) => setEndDate(format(d, 'yyyy-MM-dd'))} 
-            />
-          </div>
-          <button
-            onClick={generateSchedule}
-            disabled={generating}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white transition-all duration-200 cursor-pointer hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
-            style={{ background: 'var(--gradient-primary)' }}
-          >
-            <Wand2 size={18} className={generating ? 'animate-spin' : ''} />
-            {generating ? 'กำลังสร้าง...' : 'สุ่มจัดตาราง'}
-          </button>
-        </div>
-
-        <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-          💡 ระบบจะสุ่มพนักงานตามกะที่สะดวก, วันที่ว่าง และกระจายงานอย่างสม่ำเสมอ
-        </p>
-      </div>
 
       {/* Date Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -944,6 +885,120 @@ export default function SchedulesPage() {
               style={{ background: 'var(--accent-danger)' }}
             >
               ยืนยันการลบ
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Generate Schedule Modal */}
+      <Modal isOpen={showGenerateModal} onClose={() => setShowGenerateModal(false)} title="สุ่มจัดตารางอัตโนมัติ">
+        <div className="space-y-6 animate-fade-in">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            ตั้งค่ารูปแบบการสุ่มวันที่ต้องการให้ระบบจัดตารางให้อัตโนมัติ
+          </p>
+          
+          <div className="flex gap-2 p-1.5 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <button
+              onClick={() => setGenMode('single')}
+              className={`flex-1 flex justify-center items-center py-2.5 text-sm font-semibold rounded-lg transition-all cursor-pointer ${genMode === 'single' ? 'shadow-sm text-white' : ''}`}
+              style={{ 
+                background: genMode === 'single' ? 'var(--accent-primary)' : 'transparent',
+                color: genMode === 'single' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              สุ่มแค่วันเดียว
+            </button>
+            <button
+              onClick={() => setGenMode('range')}
+              className={`flex-1 flex justify-center items-center py-2.5 text-sm font-semibold rounded-lg transition-all cursor-pointer ${genMode === 'range' ? 'shadow-sm text-white' : ''}`}
+              style={{ 
+                background: genMode === 'range' ? 'var(--accent-primary)' : 'transparent',
+                color: genMode === 'range' ? 'white' : 'var(--text-secondary)'
+              }}
+            >
+              หลายวัน (ช่วงเวลา)
+            </button>
+          </div>
+
+          <div className="space-y-5">
+            {genMode === 'single' ? (
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>เลือกวันที่สุ่ม</label>
+                <DatePicker 
+                  value={parseISO(startDate)} 
+                  onChange={(d) => {
+                    const dateStr = format(d, 'yyyy-MM-dd');
+                    setStartDate(dateStr);
+                    setEndDate(dateStr);
+                  }} 
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>เริ่มต้นวันที่</label>
+                  <DatePicker 
+                    value={parseISO(startDate)} 
+                    onChange={(d) => setStartDate(format(d, 'yyyy-MM-dd'))} 
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>ถึงวันที่</label>
+                  <DatePicker 
+                    value={parseISO(endDate)} 
+                    onChange={(d) => setEndDate(format(d, 'yyyy-MM-dd'))} 
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="pt-5 border-t" style={{ borderColor: 'var(--border-color)' }}>
+              <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+                วันหยุดประจำสัปดาห์ของร้าน (ยกเว้นการสุ่ม)
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {['1', '2', '3', '4', '5', '6', '0'].map((idxStr) => {
+                  const idx = parseInt(idxStr);
+                  const dayNames: Record<number, string> = { 0: 'อาทิตย์', 1: 'จันทร์', 2: 'อังคาร', 3: 'พุธ', 4: 'พฤหัสบดี', 5: 'ศุกร์', 6: 'เสาร์' };
+                  const isSelected = storeHolidays.has(idx);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => toggleStoreHoliday(idx)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected ? 'shadow-sm' : ''}`}
+                      style={{
+                        background: isSelected ? 'var(--accent-danger)' : 'var(--bg-surface)',
+                        color: isSelected ? 'white' : 'var(--text-secondary)',
+                        border: `1px solid ${isSelected ? 'transparent' : 'var(--border-color)'}`
+                      }}
+                    >
+                      {dayNames[idx]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-6 border-t mt-6" style={{ borderColor: 'var(--border-color)' }}>
+            <button
+              onClick={() => setShowGenerateModal(false)}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-colors"
+              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => {
+                generateSchedule();
+                setShowGenerateModal(false);
+              }}
+              disabled={generating}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all cursor-pointer hover:opacity-90 hover:shadow-md disabled:opacity-50 disabled:shadow-none"
+              style={{ background: 'var(--gradient-primary)' }}
+            >
+              <Wand2 size={18} className={generating ? 'animate-spin' : ''} />
+              {generating ? 'กำลังสุ่ม...' : 'เริ่มสุ่มจัดตารางเลย!'}
             </button>
           </div>
         </div>
