@@ -15,6 +15,7 @@ export interface Employee {
   weekly_shift_preference?: Record<string, DailyShiftPreference>; // '0'-'6' mapping
   unavailabilities?: { unavailable_date: string }[];
   created_at: string;
+  role?: string;
 }
 
 export interface EmployeeUnavailability {
@@ -31,6 +32,7 @@ export interface Shift {
   end_time: string;   // HH:MM:SS
   required_staff: number;
   created_at: string;
+  role?: string;
 }
 
 export interface Schedule {
@@ -52,6 +54,13 @@ export interface ScheduleAssignment {
   employee?: Employee;
 }
 
+export const ROLES = [
+  { id: 'server', label: 'พนักงานเสิร์ฟ' },
+  { id: 'bar', label: 'พนักงานบาร์คาเฟ่' },
+  { id: 'chef', label: 'เชฟ' },
+  { id: 'assistant_chef', label: 'ผู้ช่วยเชฟ' },
+];
+
 export interface ScheduleWithDetails extends Schedule {
   shift: Shift;
   assignments: (ScheduleAssignment & { employee: Employee })[];
@@ -61,6 +70,7 @@ export interface ScheduleWithDetails extends Schedule {
 export interface EmployeeFormData {
   name: string;
   shift_preference: ShiftPreference;
+  role?: string;
 }
 
 export interface ShiftFormData {
@@ -68,6 +78,7 @@ export interface ShiftFormData {
   start_time: string;
   end_time: string;
   required_staff: number;
+  role?: string;
 }
 
 export interface GenerateScheduleParams {

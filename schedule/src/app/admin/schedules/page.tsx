@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Employee, EmployeeUnavailability, Shift, ScheduleWithDetails, ScheduleWarning } from '@/lib/types';
+import { Employee, EmployeeUnavailability, Shift, ScheduleWithDetails, ScheduleWarning, ROLES } from '@/lib/types';
 import { showToast } from '@/components/Toast';
 import Modal from '@/components/Modal';
 import {
@@ -78,6 +78,7 @@ export default function SchedulesPage() {
   // Generate Schedule Modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [genMode, setGenMode] = useState<'single' | 'range'>('single');
+  const [genRoles, setGenRoles] = useState<string[]>(ROLES.map(r => r.id));
 
   const loadAll = useCallback(async () => {
     const [empRes, shiftRes, unavRes, schedRes] = await Promise.all([
@@ -152,8 +153,10 @@ export default function SchedulesPage() {
         // เก็บรายชื่อคนที่ถูกสุ่มลงกะไปแล้วในวันนี้ เพื่อไม่ให้ลงซ้ำ 2 กะ
         const assignedToday = new Set<string>();
 
-        // สลับลำดับกะแบบสุ่ม เพื่อไม่ให้พนักงานประจำถูกดึงไปกะแรก (กะเช้า) ตลอดทุกวัน
-        const shuffledShifts = [...shifts].sort(() => Math.random() - 0.5);
+        // กรองเฉพาะกะที่อยู่ในแผนกที่เลือกสุ่ม แล้วสลับลำดับแบบสุ่ม
+        const shuffledShifts = [...shifts]
+          .filter(s => genRoles.includes(s.role || 'server'))
+          .sort(() => Math.random() - 0.5);
 
         for (const shift of shuffledShifts) {
           let scheduleId = '';
@@ -177,6 +180,7 @@ export default function SchedulesPage() {
           }
 
           const eligible = employees.filter((emp) => {
+            if ((emp.role || 'server') !== (shift.role || 'server')) return false;
             if (unavailSet.has(`${emp.id}_${dateStr}`)) return false;
             if (assignedToday.has(emp.id)) return false; // ข้ามคนที่จัดลงกะอื่นในวันนี้ไปแล้ว
             if (!matchesPreference(emp, shift, date)) return false;
@@ -483,110 +487,124 @@ export default function SchedulesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y" style={{ borderColor: 'var(--border-color)' }}>
-                    {shifts.map((shift, si) => {
-                      const sched = getScheduleForCell(viewDateStr, shift.id);
-                      const assignmentCount = sched?.assignments?.length ?? 0;
-                      const isFull = assignmentCount >= shift.required_staff;
-                      const color = shiftColors[si % shiftColors.length];
-                      const isActive = selectedCell?.dateStr === viewDateStr && selectedCell?.shiftId === shift.id;
+                    {ROLES.map((roleObj) => {
+                      const roleShifts = shifts.filter(s => (s.role || 'server') === roleObj.id);
+                      if (roleShifts.length === 0) return null;
                       
                       return (
-                        <tr 
-                          key={shift.id} 
-                          className="transition-colors hover:bg-white/5"
-                          style={{ background: isActive ? 'var(--bg-surface)' : 'transparent' }}
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-2.5 h-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}80` }} />
-                              <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{shift.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <span className="text-sm font-medium opacity-80" style={{ color: 'var(--text-secondary)' }}>
-                              {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-bold" style={{ color: isFull ? 'var(--accent-success)' : 'var(--accent-warning)' }}>
-                                {assignmentCount} / {shift.required_staff}
-                              </span>
-                              <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden hidden sm:block">
-                                <div 
-                                  className="h-full transition-all duration-500 rounded-full" 
-                                  style={{ 
-                                    width: `${Math.min(100, (assignmentCount / shift.required_staff) * 100)}%`,
-                                    background: isFull ? 'var(--accent-success)' : 'var(--accent-warning)'
-                                  }} 
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4 w-full">
-                            {sched && sched.assignments && sched.assignments.length > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                {sched.assignments.map(a => (
-                                  <span
-                                    key={a.id}
-                                    className="px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5"
+                        <React.Fragment key={roleObj.id}>
+                          <tr style={{ background: 'var(--bg-surface)' }}>
+                            <td colSpan={6} className="px-5 py-3 text-sm font-bold border-y border-dashed" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
+                              📍 {roleObj.label}
+                            </td>
+                          </tr>
+                          {roleShifts.map((shift, si) => {
+                            const sched = getScheduleForCell(viewDateStr, shift.id);
+                            const assignmentCount = sched?.assignments?.length ?? 0;
+                            const isFull = assignmentCount >= shift.required_staff;
+                            const color = shiftColors[si % shiftColors.length];
+                            const isActive = selectedCell?.dateStr === viewDateStr && selectedCell?.shiftId === shift.id;
+                            
+                            return (
+                              <tr 
+                                key={shift.id} 
+                                className="transition-colors hover:bg-white/5"
+                                style={{ background: isActive ? 'var(--bg-surface)' : 'transparent' }}
+                              >
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}80` }} />
+                                    <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{shift.name}</span>
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4">
+                                  <span className="text-sm font-medium opacity-80" style={{ color: 'var(--text-secondary)' }}>
+                                    {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-sm font-bold" style={{ color: isFull ? 'var(--accent-success)' : 'var(--accent-warning)' }}>
+                                      {assignmentCount} / {shift.required_staff}
+                                    </span>
+                                    <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden hidden sm:block">
+                                      <div 
+                                        className="h-full transition-all duration-500 rounded-full" 
+                                        style={{ 
+                                          width: `${Math.min(100, (assignmentCount / shift.required_staff) * 100)}%`,
+                                          background: isFull ? 'var(--accent-success)' : 'var(--accent-warning)'
+                                        }} 
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4 w-full">
+                                  {sched && sched.assignments && sched.assignments.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {sched.assignments.map(a => (
+                                        <span
+                                          key={a.id}
+                                          className="px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5"
+                                          style={{ 
+                                            background: `${color}10`, 
+                                            color: color,
+                                            borderColor: `${color}30`,
+                                            width: 'max-content'
+                                          }}
+                                        >
+                                          {a.employee?.name}
+                                          {a.employee?.employment_type && (
+                                            <span 
+                                              className="px-1.5 py-0.5 rounded text-[9px] font-bold" 
+                                              style={{ 
+                                                background: a.employee.employment_type === 'full_time' ? 'var(--accent-primary)' : 'var(--accent-warning)', 
+                                                color: 'white' 
+                                              }}
+                                            >
+                                              {a.employee.employment_type === 'full_time' ? 'ประจำ' : 'พาร์ทไทม์'}
+                                            </span>
+                                          )}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : sched ? (
+                                    <span className="text-xs px-3 py-1 rounded-full" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>ยังไม่มีคนลงกะ</span>
+                                  ) : (
+                                    <span className="text-xs opacity-50" style={{ color: 'var(--text-muted)' }}>-</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-4">
+                                  {sched ? (
+                                    sched.is_published ? (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-success)' }}>
+                                        <Check size={12} strokeWidth={3} /> เผยแพร่แล้ว
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--accent-warning)' }}>
+                                        <AlertTriangle size={12} strokeWidth={2.5} /> รอเผยแพร่
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span className="text-xs opacity-50" style={{ color: 'var(--text-muted)' }}>-</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-4">
+                                  <button
+                                    onClick={() => openCellPanel(viewDateStr, shift.id)}
+                                    className="w-full sm:w-auto px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer shadow-sm hover:shadow-md"
                                     style={{ 
-                                      background: `${color}10`, 
-                                      color: color,
-                                      borderColor: `${color}30`,
-                                      width: 'max-content'
+                                      background: isActive ? 'var(--gradient-primary)' : 'var(--bg-surface)', 
+                                      color: isActive ? 'white' : 'var(--text-primary)', 
+                                      border: isActive ? '1px solid transparent' : '1px solid var(--border-color)' 
                                     }}
                                   >
-                                    {a.employee?.name}
-                                    {a.employee?.employment_type && (
-                                      <span 
-                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold" 
-                                        style={{ 
-                                          background: a.employee.employment_type === 'full_time' ? 'var(--accent-primary)' : 'var(--accent-warning)', 
-                                          color: 'white' 
-                                        }}
-                                      >
-                                        {a.employee.employment_type === 'full_time' ? 'ประจำ' : 'พาร์ทไทม์'}
-                                      </span>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : sched ? (
-                              <span className="text-xs px-3 py-1 rounded-full" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>ยังไม่มีคนลงกะ</span>
-                            ) : (
-                              <span className="text-xs opacity-50" style={{ color: 'var(--text-muted)' }}>-</span>
-                            )}
-                          </td>
-                          <td className="px-5 py-4">
-                            {sched ? (
-                              sched.is_published ? (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-success)' }}>
-                                  <Check size={12} strokeWidth={3} /> เผยแพร่แล้ว
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--accent-warning)' }}>
-                                  <AlertTriangle size={12} strokeWidth={2.5} /> รอเผยแพร่
-                                </span>
-                              )
-                            ) : (
-                              <span className="text-xs opacity-50" style={{ color: 'var(--text-muted)' }}>-</span>
-                            )}
-                          </td>
-                          <td className="px-5 py-4">
-                            <button
-                              onClick={() => openCellPanel(viewDateStr, shift.id)}
-                              className="w-full sm:w-auto px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer shadow-sm hover:shadow-md"
-                              style={{ 
-                                background: isActive ? 'var(--gradient-primary)' : 'var(--bg-surface)', 
-                                color: isActive ? 'white' : 'var(--text-primary)', 
-                                border: isActive ? '1px solid transparent' : '1px solid var(--border-color)' 
-                              }}
-                            >
-                              {sched ? 'จัดการกะ' : 'สร้างกะนี้'}
-                            </button>
-                          </td>
-                        </tr>
+                                    {sched ? 'จัดการกะ' : 'สร้างกะนี้'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -687,15 +705,20 @@ export default function SchedulesPage() {
                           {selectedSchedule.assignments?.map((a) => (
                             <div
                               key={a.id}
-                              className="flex items-center justify-between px-3 py-2 rounded-lg group"
-                              style={{ background: 'var(--bg-surface)' }}
+                              className="w-full flex items-center justify-between px-3 py-2 rounded-lg group"
+                              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}
                             >
-                              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                                {a.employee?.name ?? 'Unknown'}
-                              </span>
+                              <div className="flex flex-col items-start gap-0.5">
+                                <span className="text-sm font-medium text-left line-clamp-1" style={{ color: 'var(--text-primary)' }}>
+                                  {a.employee?.name ?? 'Unknown'}
+                                </span>
+                                <span className="text-[9px] font-bold" style={{ color: 'var(--text-secondary)' }}>
+                                  📍 {ROLES.find(r => r.id === (a.employee?.role || 'server'))?.label}
+                                </span>
+                              </div>
                               <button
                                 onClick={() => removeAssignment(a.id)}
-                                className="opacity-0 group-hover:opacity-100 p-1 rounded cursor-pointer transition-all duration-200"
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded bg-black/5 dark:bg-white/5 cursor-pointer transition-all duration-200"
                                 style={{ color: 'var(--accent-danger)' }}
                                 title="ลบออกจากกะ"
                               >
@@ -708,33 +731,55 @@ export default function SchedulesPage() {
                     </div>
 
                     {/* Add employee buttons */}
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-                        เพิ่มพนักงาน
+                    <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-color)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-primary)' }}>
+                        เพิ่มพนักงานลงกะนี้
                       </p>
-                      <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
-                        {employees.map((emp) => {
-                          const alreadyAssigned = selectedSchedule.assignments?.some((a) => a.employee_id === emp.id);
+                      <div className="flex flex-col gap-4 max-h-[340px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                        {ROLES.map(({ id, label }) => {
+                          const roleEmployees = employees.filter(e => (e.role || 'server') === id);
+                          if (roleEmployees.length === 0) return null;
+
                           return (
-                            <button
-                              key={emp.id}
-                              onClick={() => !alreadyAssigned && addEmployeeToSchedule(emp.id, selectedSchedule.id)}
-                              disabled={alreadyAssigned}
-                              className="flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                              style={{
-                                background: 'transparent',
-                                color: 'var(--text-secondary)',
-                              }}
-                              onMouseEnter={(e) => { if (!alreadyAssigned) e.currentTarget.style.background = 'var(--bg-surface)'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                            >
-                              <span>{emp.name}</span>
-                              {alreadyAssigned ? (
-                                <Check size={14} style={{ color: 'var(--accent-success)' }} />
-                              ) : (
-                                <UserPlus size={14} style={{ color: 'var(--accent-primary)' }} />
-                              )}
-                            </button>
+                            <div key={id} className="flex flex-col gap-1.5">
+                              <p className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                                📍 หมวดหมู่: {label}
+                              </p>
+                              {roleEmployees.map((emp) => {
+                                const alreadyAssigned = selectedSchedule?.assignments?.some((a) => a.employee_id === emp.id);
+                                return (
+                                  <button
+                                    key={emp.id}
+                                    onClick={() => !alreadyAssigned && addEmployeeToSchedule(emp.id, selectedSchedule.id)}
+                                    disabled={alreadyAssigned}
+                                    className="w-full flex items-center justify-between px-3 py-2 text-sm transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group border-b last:border-0"
+                                    style={{
+                                      background: alreadyAssigned ? 'var(--bg-surface)' : 'transparent',
+                                      color: alreadyAssigned ? 'var(--text-muted)' : 'var(--text-primary)',
+                                      borderColor: 'var(--border-color)'
+                                    }}
+                                    onMouseEnter={(e) => { if (!alreadyAssigned) e.currentTarget.style.background = 'var(--bg-card-hover)'; }}
+                                    onMouseLeave={(e) => { if (!alreadyAssigned) e.currentTarget.style.background = 'transparent'; }}
+                                  >
+                                    <div className="flex flex-col items-start gap-0.5">
+                                      <span className="font-medium text-left line-clamp-1">{emp.name}</span>
+                                      {emp.employment_type === 'full_time' && (
+                                        <span className="text-[9px] font-bold px-1.5 rounded-sm" style={{ background: 'var(--accent-primary)', color: 'white' }}>ประจำ</span>
+                                      )}
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                      {alreadyAssigned ? (
+                                        <Check size={14} style={{ color: 'var(--accent-success)' }} />
+                                      ) : (
+                                        <div className="p-1 rounded bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <UserPlus size={14} style={{ color: 'var(--accent-primary)' }} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           );
                         })}
                       </div>
@@ -973,6 +1018,31 @@ export default function SchedulesPage() {
                       }}
                     >
                       {dayNames[idx]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-5 border-t" style={{ borderColor: 'var(--border-color)' }}>
+              <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+                เลือกแผนกที่ต้องการสุ่มจัดตาราง (Role)
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {ROLES.map(({ id, label }) => {
+                  const isSelected = genRoles.includes(id);
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setGenRoles(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id])}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected ? 'shadow-sm text-white' : ''}`}
+                      style={{
+                        background: isSelected ? 'var(--accent-primary)' : 'var(--bg-surface)',
+                        color: isSelected ? 'white' : 'var(--text-secondary)',
+                        border: `1px solid ${isSelected ? 'transparent' : 'var(--border-color)'}`
+                      }}
+                    >
+                      {label}
                     </button>
                   );
                 })}

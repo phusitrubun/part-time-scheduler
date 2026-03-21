@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Employee, EmployeeUnavailability, ShiftPreference, DailyShiftPreference, EmploymentType } from '@/lib/types';
+import { Employee, EmployeeUnavailability, ShiftPreference, DailyShiftPreference, EmploymentType, ROLES } from '@/lib/types';
 import { showToast } from '@/components/Toast';
 import Modal from '@/components/Modal';
 import {
@@ -41,6 +41,7 @@ export default function EmployeesPage() {
     '0': 'both', '1': 'both', '2': 'both', '3': 'both', '4': 'both', '5': 'both', '6': 'both'
   };
   const [formWeeklyPref, setFormWeeklyPref] = useState<Record<string, DailyShiftPreference>>(defaultWeeklyPref);
+  const [formRole, setFormRole] = useState('server');
   const [saving, setSaving] = useState(false);
   const [empToDelete, setEmpToDelete] = useState<Employee | null>(null);
 
@@ -71,6 +72,7 @@ export default function EmployeesPage() {
     setFormPref('both');
     setFormEmploymentType('part_time');
     setFormWeeklyPref(defaultWeeklyPref);
+    setFormRole('server');
     setShowForm(true);
   };
 
@@ -86,6 +88,7 @@ export default function EmployeesPage() {
       for (let i = 0; i < 7; i++) fallback[i.toString()] = emp.shift_preference;
       setFormWeeklyPref(fallback);
     }
+    setFormRole(emp.role || 'server');
     setShowForm(true);
   };
 
@@ -98,14 +101,14 @@ export default function EmployeesPage() {
     if (editEmployee) {
       const { error } = await supabase
         .from('employees')
-        .update({ name: formName.trim(), shift_preference: formPref, weekly_shift_preference: formWeeklyPref, employment_type: formEmploymentType })
+        .update({ name: formName.trim(), shift_preference: formPref, weekly_shift_preference: formWeeklyPref, employment_type: formEmploymentType, role: formRole })
         .eq('id', editEmployee.id);
       if (error) showToast('error', 'แก้ไขไม่สำเร็จ');
       else showToast('success', 'แก้ไขพนักงานสำเร็จ');
     } else {
       const { error } = await supabase
         .from('employees')
-        .insert({ name: formName.trim(), shift_preference: formPref, weekly_shift_preference: formWeeklyPref, employment_type: formEmploymentType });
+        .insert({ name: formName.trim(), shift_preference: formPref, weekly_shift_preference: formWeeklyPref, employment_type: formEmploymentType, role: formRole });
       if (error) showToast('error', 'เพิ่มพนักงานไม่สำเร็จ');
       else showToast('success', 'เพิ่มพนักงานสำเร็จ');
     }
@@ -242,17 +245,29 @@ export default function EmployeesPage() {
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
                   <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1.5">
-                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{emp.name}</span>
-                      <span 
-                        className="px-2 py-0.5 rounded-md text-[10px] font-bold w-max"
-                        style={{
-                          background: emp.employment_type === 'full_time' ? 'var(--accent-primary)' : 'var(--accent-warning)',
-                          color: emp.employment_type === 'full_time' ? 'white' : '#fff'
-                        }}
-                      >
-                        {emp.employment_type === 'full_time' ? 'พนักงานประจำ' : 'พาร์ทไทม์'}
-                      </span>
+                    <div className="flex flex-col gap-1.5 items-start">
+                      <span className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{emp.name}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span 
+                          className="px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm"
+                          style={{
+                            background: emp.employment_type === 'full_time' ? 'var(--accent-primary)' : 'var(--accent-warning)',
+                            color: 'white'
+                          }}
+                        >
+                          {emp.employment_type === 'full_time' ? 'ประจำ' : 'พาร์ทไทม์'}
+                        </span>
+                        <span 
+                          className="px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm border"
+                          style={{
+                            background: 'var(--bg-card)',
+                            color: 'var(--text-secondary)',
+                            borderColor: 'var(--border-color)'
+                          }}
+                        >
+                          {ROLES.find(r => r.id === emp.role)?.label || 'พนักงานเสิร์ฟ'}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -372,25 +387,45 @@ export default function EmployeesPage() {
         title={editEmployee ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงานใหม่'}
       >
         <div className="flex flex-col gap-5">
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-              ชื่อ-นามสกุล
-            </label>
-            <input
-              type="text"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="เช่น สมชาย ใจดี"
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200 mb-5"
-              style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
-              onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color)')}
-              autoFocus
-            />
+          <div className="flex flex-col sm:flex-row gap-4 mb-2">
+            <div className="flex-1 w-full sm:w-auto">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                ชื่อ-นามสกุล
+              </label>
+              <input
+                type="text"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="เช่น สมชาย ใจดี"
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex-1 w-full sm:w-auto">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                ตำแหน่งงาน
+              </label>
+              <select
+                value={formRole}
+                onChange={(e) => setFormRole(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {ROLES.map(r => (
+                  <option key={r.id} value={r.id}>{r.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="mb-2">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Shift } from '@/lib/types';
+import { Shift, ROLES } from '@/lib/types';
 import { showToast } from '@/components/Toast';
 import Modal from '@/components/Modal';
 import { Plus, Pencil, Trash2, Clock, Users } from 'lucide-react';
@@ -17,6 +17,7 @@ export default function ShiftsPage() {
   const [formStart, setFormStart] = useState('08:00');
   const [formEnd, setFormEnd] = useState('15:00');
   const [formStaff, setFormStaff] = useState(1);
+  const [formRole, setFormRole] = useState('server');
   const [saving, setSaving] = useState(false);
   const [shiftToDelete, setShiftToDelete] = useState<Shift | null>(null);
 
@@ -38,6 +39,7 @@ export default function ShiftsPage() {
     setFormStart('08:00');
     setFormEnd('15:00');
     setFormStaff(1);
+    setFormRole('server');
     setShowForm(true);
   };
 
@@ -47,6 +49,7 @@ export default function ShiftsPage() {
     setFormStart(shift.start_time.substring(0, 5));
     setFormEnd(shift.end_time.substring(0, 5));
     setFormStaff(shift.required_staff);
+    setFormRole(shift.role || 'server');
     setShowForm(true);
   };
 
@@ -61,6 +64,7 @@ export default function ShiftsPage() {
       start_time: formStart,
       end_time: formEnd,
       required_staff: formStaff,
+      role: formRole
     };
     if (editShift) {
       const { error } = await supabase.from('shifts').update(payload).eq('id', editShift.id);
@@ -175,9 +179,17 @@ export default function ShiftsPage() {
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                  {shift.name}
-                </h3>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {shift.name}
+                  </h3>
+                  <span 
+                    className="px-2 py-0.5 rounded-md text-[10px] font-bold shadow-sm border"
+                    style={{ background: 'var(--bg-surface)', color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}
+                  >
+                    {ROLES.find(r => r.id === shift.role)?.label || 'พนักงานเสิร์ฟ'}
+                  </span>
+                </div>
 
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5">
@@ -207,25 +219,45 @@ export default function ShiftsPage() {
         title={editShift ? 'แก้ไขกะ' : 'เพิ่มกะใหม่'}
       >
         <div className="flex flex-col gap-5">
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-              ชื่อกะ
-            </label>
-            <input
-              type="text"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="เช่น กะเช้า, กะเย็น"
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
-              style={{
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
-              onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border-color)')}
-              autoFocus
-            />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 w-full sm:w-auto">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                ชื่อกะ
+              </label>
+              <input
+                type="text"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="เช่น กะเช้า, กะเย็น"
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex-1 w-full sm:w-auto">
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                ตำแหน่งงาน
+              </label>
+              <select
+                value={formRole}
+                onChange={(e) => setFormRole(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all duration-200"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {ROLES.map(r => (
+                  <option key={r.id} value={r.id}>{r.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

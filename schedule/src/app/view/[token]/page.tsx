@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ScheduleWithDetails, Shift } from '@/lib/types';
+import { ScheduleWithDetails, Shift, ROLES } from '@/lib/types';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { format, addDays, isToday, parseISO, getDay } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -162,49 +162,63 @@ export default function PublicViewPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: 'var(--border-color)' }}>
-                  {shifts.map((shift, si) => {
-                    const sched = getScheduleForCell(viewDateStr, shift.id);
-                    const color = shiftColors[si % shiftColors.length];
+                  {ROLES.map((roleObj) => {
+                    const roleShifts = shifts.filter(s => (s.role || 'server') === roleObj.id);
+                    if (roleShifts.length === 0) return null;
 
                     return (
-                      <tr key={shift.id} className="transition-colors hover:bg-white/5">
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-3 h-3 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}80` }} />
-                            <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{shift.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <span className="text-sm font-medium opacity-80" style={{ color: 'var(--text-secondary)' }}>
-                            {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5 w-full">
-                          {sched && sched.assignments && sched.assignments.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {sched.assignments.map(a => (
-                                <span
-                                  key={a.id}
-                                  className="px-3 py-1.5 rounded-lg text-sm font-medium"
-                                  style={{ 
-                                    background: `${color}15`, 
-                                    color: color,
-                                    border: `1px solid ${color}30`
-                                  }}
-                                >
-                                  {a.employee?.name}
+                      <React.Fragment key={roleObj.id}>
+                        <tr style={{ background: 'var(--bg-surface)' }}>
+                          <td colSpan={3} className="px-6 py-3 text-sm font-bold border-y border-dashed" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
+                            📍 {roleObj.label}
+                          </td>
+                        </tr>
+                        {roleShifts.map((shift, si) => {
+                          const sched = getScheduleForCell(viewDateStr, shift.id);
+                          const color = shiftColors[si % shiftColors.length];
+
+                          return (
+                            <tr key={shift.id} className="transition-colors hover:bg-white/5">
+                              <td className="px-6 py-5">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-3 h-3 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}80` }} />
+                                  <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{shift.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5">
+                                <span className="text-sm font-medium opacity-80" style={{ color: 'var(--text-secondary)' }}>
+                                  {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
                                 </span>
-                              ))}
-                            </div>
-                          ) : sched ? (
-                            <span className="text-sm px-4 py-1.5 rounded-full" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>
-                              ไม่มีพนักงานลงกะนี้
-                            </span>
-                          ) : (
-                            <span className="text-sm opacity-50" style={{ color: 'var(--text-muted)' }}>-</span>
-                          )}
-                        </td>
-                      </tr>
+                              </td>
+                              <td className="px-6 py-5 w-full">
+                                {sched && sched.assignments && sched.assignments.length > 0 ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {sched.assignments.map(a => (
+                                      <span
+                                        key={a.id}
+                                        className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                                        style={{ 
+                                          background: `${color}15`, 
+                                          color: color,
+                                          border: `1px solid ${color}30`
+                                        }}
+                                      >
+                                        {a.employee?.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : sched ? (
+                                  <span className="text-sm px-4 py-1.5 rounded-full" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>
+                                    ไม่มีพนักงานลงกะนี้
+                                  </span>
+                                ) : (
+                                  <span className="text-sm opacity-50" style={{ color: 'var(--text-muted)' }}>-</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
