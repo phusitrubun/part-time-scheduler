@@ -152,77 +152,76 @@ export default function PublicViewPage() {
               ยังไม่มีข้อมูลกะการทำงาน
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left whitespace-nowrap">
-                <thead>
-                  <tr style={{ background: 'var(--bg-surface)' }}>
-                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>กะการทำงาน</th>
-                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>เวลา</th>
-                    <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>พนักงานที่ปฏิบัติงาน</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border-color)' }}>
-                  {ROLES.map((roleObj) => {
-                    const roleShifts = shifts.filter(s => (s.role || 'server') === roleObj.id);
-                    if (roleShifts.length === 0) return null;
+            <div className="p-4 sm:p-6 flex flex-col gap-6">
+              {ROLES.map((roleObj) => {
+                const roleShifts = shifts.filter(s => (s.role || 'server') === roleObj.id);
+                if (roleShifts.length === 0) return null;
 
-                    return (
-                      <React.Fragment key={roleObj.id}>
-                        <tr style={{ background: 'var(--bg-surface)' }}>
-                          <td colSpan={3} className="px-6 py-3 text-sm font-bold border-y border-dashed" style={{ color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
-                            📍 {roleObj.label}
-                          </td>
-                        </tr>
-                        {roleShifts.map((shift, si) => {
-                          const sched = getScheduleForCell(viewDateStr, shift.id);
-                          const color = shiftColors[si % shiftColors.length];
+                return (
+                  <div key={roleObj.id} className="flex flex-col gap-3">
+                    <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                      <span className="w-1.5 h-4 rounded-full" style={{ background: 'var(--accent-primary)' }}></span>
+                      {roleObj.label}
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {roleShifts.map((shift, si) => {
+                        const sched = getScheduleForCell(viewDateStr, shift.id);
+                        const color = shiftColors[si % shiftColors.length];
+                        const assignmentCount = sched?.assignments?.length ?? 0;
 
-                          return (
-                            <tr key={shift.id} className="transition-colors hover:bg-white/5">
-                              <td className="px-6 py-5">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-3 h-3 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}80` }} />
-                                  <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{shift.name}</span>
+                        return (
+                          <div key={shift.id} className="rounded-xl flex flex-col p-4 transition-all duration-200 shadow-sm" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)' }}>
+                            <div className="flex items-center justify-between mb-3 pb-3 border-b border-dashed" style={{ borderColor: 'var(--border-color)' }}>
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-2.5 h-2.5 rounded-full relative" style={{ flexShrink: 0 }}>
+                                  <div className="absolute inset-0 rounded-full animate-ping opacity-20" style={{ background: color }}></div>
+                                  <div className="relative w-full h-full rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}80` }} />
                                 </div>
-                              </td>
-                              <td className="px-6 py-5">
-                                <span className="text-sm font-medium opacity-80" style={{ color: 'var(--text-secondary)' }}>
-                                  {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
-                                </span>
-                              </td>
-                              <td className="px-6 py-5 w-full">
-                                {sched && sched.assignments && sched.assignments.length > 0 ? (
-                                  <div className="flex flex-wrap gap-2">
-                                    {sched.assignments.map(a => (
-                                      <span
-                                        key={a.id}
-                                        className="px-3 py-1.5 rounded-lg text-sm font-medium"
-                                        style={{ 
-                                          background: `${color}15`, 
-                                          color: color,
-                                          border: `1px solid ${color}30`
-                                        }}
-                                      >
-                                        {a.employee?.name}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : sched ? (
-                                  <span className="text-sm px-4 py-1.5 rounded-full" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>
-                                    ไม่มีพนักงานลงกะนี้
-                                  </span>
-                                ) : (
-                                  <span className="text-sm opacity-50" style={{ color: 'var(--text-muted)' }}>-</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+                                <span className="font-semibold text-sm line-clamp-1" style={{ color: 'var(--text-primary)' }}>{shift.name}</span>
+                              </div>
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-md flex-shrink-0" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
+                                {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
+                              </span>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2 flex-1">
+                              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                                พนักงานปฏิบัติงาน ({assignmentCount}/{shift.required_staff})
+                              </p>
+                              {sched && sched.assignments && sched.assignments.length > 0 ? (
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {sched.assignments.map(a => (
+                                    <span
+                                      key={a.id}
+                                      className="px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
+                                      style={{ 
+                                        background: `var(--bg-card)`, 
+                                        color: color,
+                                        border: `1px solid ${color}30`
+                                      }}
+                                    >
+                                      {a.employee?.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : sched ? (
+                                <div className="flex-1 flex flex-col justify-center items-center py-4 rounded-lg border border-dashed mt-1" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+                                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>ไม่มีพนักงานลงกะนี้</span>
+                                </div>
+                              ) : (
+                                <div className="flex-1 flex flex-col justify-center items-center py-4 rounded-lg border border-dashed mt-1" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-card)' }}>
+                                  <span className="text-[11px] font-medium opacity-50" style={{ color: 'var(--text-muted)' }}>ยังไม่เปิดกะนี้</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
